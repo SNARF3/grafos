@@ -14,10 +14,10 @@ const Pizarra = () => {
             cancelButtonText: "Cancelar",
         });
 
-        return nombre || null; // Si cancela, retorna null
+        return nombre || null; 
     };
 
-    const handleDoubleClick = async (e) => {
+    const DobleClickEjecutado = async (e) => {
         const x = e.clientX;
         const y = e.clientY;
         const nombre = await solicitarNombre();
@@ -30,7 +30,7 @@ const Pizarra = () => {
     return (
         <div
             style={{ width: "100vw", height: "100vh", background: "#112230", position: "relative" }}
-            onDoubleClick={handleDoubleClick}
+            onDoubleClick={DobleClickEjecutado}
         >
             {nodos.map((nodo) => (
                 <Nodo key={nodo.valor} x={nodo.x} y={nodo.y} valor={nodo.valor}/>
