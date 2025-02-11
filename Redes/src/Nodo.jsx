@@ -1,33 +1,25 @@
-import { useState } from "react";
-
-const Nodo = () => {
-    const [nodos, setNodos] = useState([]);
-
-    const handleDoubleClick = (event) => {
-        const { clientX, clientY } = event;
-        setNodos((prevNodos) => [...prevNodos, { x: clientX, y: clientY }]);
-    };
-
+// eslint-disable-next-line react/prop-types
+const Nodo = ({ x, y, valor }) => {
+    console.log("valor de llegada: ", valor)
     return (
-        <div
-        onDoubleClick={handleDoubleClick}
-        className="relative w-screen h-screen bg-gray-100"
+        <svg
+            width="50"
+            height="50"
+            style={{ position: "absolute", top: y - 25, left: x - 25 }}
         >
-        {nodos.map((nodo, index) => (
-            <div
-            key={index}
-            className="absolute bg-blue-500 rounded-full"
-            style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "50%",
-                position: "absolute",
-                top: `${nodo.y - 15}px`,
-                left: `${nodo.x - 15}px`,
-            }}
-            />
-        ))}
-        </div>
+            <circle cx="25" cy="25" r="20" fill="blue" stroke="white" strokeWidth="2" />
+            <text 
+                x="25" 
+                y="27" 
+                textAnchor="middle" 
+                fill="white" 
+                fontSize="14px" 
+                fontWeight="bold" 
+                dominantBaseline="middle"
+            >
+                {valor}
+            </text>
+        </svg>
     );
 };
 
