@@ -1,137 +1,266 @@
-import { useState } from "react";
-import Nodo from "./Nodo";
-import Swal from "sweetalert2";
+import React, { useState, useRef } from "react";
+import { Stage, Layer, Circle, Text, Arrow, Line } from "react-konva";
 
-const Pizarra = () => {
-    const [nodos, setNodos] = useState([]);
-    const [selectedNodos, setSelectedNodos] = useState([]);
-    const [lineas, setLineas] = useState([]);
+const App = () => {
+  const [nodes, setNodes] = useState([]); // Almacena los nodos
+  const [edges, setEdges] = useState([]); // Almacena las aristas
+  const [tempEdge, setTempEdge] = useState(null); // Arista temporal al crear
+  const [selectedNode, setSelectedNode] = useState(null); // Nodo seleccionado para crear arista
+  const [nodeName, setNodeName] = useState(""); // Nombre del nodo
+  const [edgeWeight, setEdgeWeight] = useState(""); // Peso de la arista
+  const [showNameInput, setShowNameInput] = useState(false); // Mostrar input de nombre
+  const [showWeightInput, setShowWeightInput] = useState(false); // Mostrar input de peso
+  const [draggingEdge, setDraggingEdge] = useState(null); // Flecha que se está arrastrando
+  const [draggingEnd, setDraggingEnd] = useState(null); // Indica si se arrastra la cabeza (to) o la cola (from)
+  const stageRef = useRef(null); // Referencia al stage de Konva
 
-    const solicitarNombre = async () => {
-        const { value: nombre } = await Swal.fire({
-            title: "Ingrese el nombre del nodo",
-            input: "text",
-            inputPlaceholder: "Ejemplo: Nodo A",
-            showCancelButton: true,
-            confirmButtonText: "Aceptar",
-            cancelButtonText: "Cancelar",
-        });
+  // Función para agregar un nodo
+  const handleAddNode = (e) => {
+    if (e.evt.button === 0 && e.evt.detail === 2) { // Doble click izquierdo
+      const stage = stageRef.current;
+      const pointerPosition = stage.getPointerPosition();
+      setShowNameInput(true);
+      setNodes([
+        ...nodes,
+        {
+          id: `node-${nodes.length + 1}`,
+          x: pointerPosition.x,
+          y: pointerPosition.y,
+          name: "",
+        },
+      ]);
+    }
+  };
 
-        return nombre || null; 
-    };
+  // Función para confirmar el nombre del nodo
+  const confirmNodeName = () => {
+    if (nodeName.trim()) {
+      const updatedNodes = nodes.map((node, index) =>
+        index === nodes.length - 1 ? { ...node, name: nodeName } : node
+      );
+      setNodes(updatedNodes);
+      setNodeName("");
+      setShowNameInput(false);
+    }
+  };
 
-    const solicitarValorLinea = async () => {
-        const { value: valor } = await Swal.fire({
-            title: "Ingrese el valor de la línea",
-            input: "number",
-            inputPlaceholder: "Ejemplo: 10",
-            showCancelButton: true,
-            confirmButtonText: "Aceptar",
-            cancelButtonText: "Cancelar",
-        });
+  // Función para iniciar la creación de una arista
+  const handleStartEdge = (nodeId) => {
+    if (selectedNode === null) {
+      setSelectedNode(nodeId);
+    } else {
+      setShowWeightInput(true);
+      setTempEdge({ from: selectedNode, to: nodeId });
+    }
+  };
 
-        return valor || null;
-    };
+  // Función para confirmar el peso de la arista
+  const confirmEdgeWeight = () => {
+    if (edgeWeight.trim()) {
+      const newEdge = {
+        id: `edge-${edges.length + 1}`,
+        from: tempEdge.from,
+        to: tempEdge.to,
+        weight: parseInt(edgeWeight),
+      };
+      setEdges([...edges, newEdge]);
+      setEdgeWeight("");
+      setShowWeightInput(false);
+      setTempEdge(null);
+      setSelectedNode(null);
+    }
+  };
 
-    const DobleClickEjecutado = async (e) => {
-        const x = e.clientX;
-        const y = e.clientY;
-        const nombre = await solicitarNombre();
-        if (!nombre) return; 
-        console.log("nombre: ", nombre);
-        setNodos([...nodos, { x, y, valor: nombre }]);
-    };
+  // Función para iniciar el arrastre de una flecha
+  const handleDragStart = (edgeId, end) => {
+    setDraggingEdge(edgeId);
+    setDraggingEnd(end); // 'from' o 'to'
+  };
 
-    const handleDrag = (x, y, valor) => {
-        setNodos(nodos.map(nodo => nodo.valor === valor ? { ...nodo, x, y } : nodo));
-        setLineas(lineas.map(linea => {
-            if (linea.nodo1.valor === valor) {
-                return { ...linea, nodo1: { ...linea.nodo1, x, y } };
-            } else if (linea.nodo2.valor === valor) {
-                return { ...linea, nodo2: { ...linea.nodo2, x, y } };
-            }
-            return linea;
-        }));
-    };
+  // Función para finalizar el arrastre de una flecha
+  const handleDragEnd = (e) => {
+    if (draggingEdge) {
+      const stage = stageRef.current;
+      const pointerPosition = stage.getPointerPosition();
 
-    const handleNodoRightClick = async (nodo, e) => {
-        e.preventDefault();
-        if (selectedNodos.length === 1 && selectedNodos[0].valor === nodo.valor) {
-            setSelectedNodos([]);
-        } else if (selectedNodos.length < 2) {
-            setSelectedNodos([...selectedNodos, nodo]);
+      // Encontrar el nodo más cercano al punto donde se soltó la flecha
+      const closestNode = nodes.reduce((closest, node) => {
+        const distance = Math.sqrt(
+          Math.pow(node.x - pointerPosition.x, 2) +
+          Math.pow(node.y - pointerPosition.y, 2)
+        );
+        if (distance < 30 && distance < closest.distance) {
+          return { node, distance };
         }
+        return closest;
+      }, { node: null, distance: Infinity });
 
-        if (selectedNodos.length === 1) {
-            const nodo1 = selectedNodos[0];
-            const nodo2 = nodo;
-            const valorLinea = await solicitarValorLinea();
-            if (!valorLinea) return;
-            setLineas([...lineas, { nodo1, nodo2, valor: valorLinea }]);
-            setSelectedNodos([]);
-        }
-    };
-    return (
-        <div
-            style={{ width: "100vw", height: "100vh", background: "#112230", position: "relative" }}
-            onDoubleClick={DobleClickEjecutado}
+      if (closestNode.node) {
+        // Actualizar la arista con el nuevo nodo
+        const updatedEdges = edges.map((edge) =>
+          edge.id === draggingEdge
+            ? {
+                ...edge,
+                [draggingEnd]: closestNode.node.id,
+              }
+            : edge
+        );
+        setEdges(updatedEdges);
+      }
+
+      setDraggingEdge(null);
+      setDraggingEnd(null);
+    }
+  };
+
+  // Generar matriz de adyacencia
+  const generateAdjacencyMatrix = () => {
+    const matrix = Array(nodes.length)
+      .fill()
+      .map(() => Array(nodes.length).fill(0));
+
+    edges.forEach((edge) => {
+      const fromIndex = nodes.findIndex((node) => node.id === edge.from);
+      const toIndex = nodes.findIndex((node) => node.id === edge.to);
+      matrix[fromIndex][toIndex] = edge.weight;
+    });
+
+    return matrix;
+  };
+
+  return (
+    <div style={{ display: "flex" }}>
+      <div>
+        <Stage
+          width={window.innerWidth * 0.7}
+          height={window.innerHeight}
+          onMouseDown={handleAddNode}
+          onMouseUp={handleDragEnd}
+          ref={stageRef}
         >
-            {lineas.map((linea, index) => {
-                const angle = Math.atan2(linea.nodo2.y - linea.nodo1.y, linea.nodo2.x - linea.nodo1.x);
-                const radius = 20; // Assuming the radius of the sphere is 20
-                const offset = 10; // Additional offset to shorten the lines
-                const x1 = linea.nodo1.x + (radius + offset) * Math.cos(angle);
-                const y1 = linea.nodo1.y + (radius + offset) * Math.sin(angle);
-                const x2 = linea.nodo2.x - (radius + offset) * Math.cos(angle);
-                const y2 = linea.nodo2.y - (radius + offset) * Math.sin(angle);
-
-                return (
-                    <svg key={index} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
-                        <defs>
-                            <marker
-                                id={`arrowhead-${index}`}
-                                markerWidth="10"
-                                markerHeight="7"
-                                refX="0"
-                                refY="3.5"
-                                orient="auto"
-                            >
-                                <polygon points="0 0, 10 3.5, 0 7" fill="white" />
-                            </marker>
-                        </defs>
-                        <line
-                            x1={x1}
-                            y1={y1}
-                            x2={x2}
-                            y2={y2}
-                            stroke="white"
-                            strokeWidth="2"
-                            markerEnd={`url(#arrowhead-${index})`}
-                        />
-                        <text
-                            x={(x1 + x2) / 2}
-                            y={(y1 + y2) / 2}
-                            fill="white"
-                            fontSize="14px"
-                            fontWeight="bold"
-                        >
-                            {linea.valor}
-                        </text>
-                    </svg>
-                );
-            })}
-            {nodos.map((nodo) => (
-                <Nodo
-                    key={nodo.valor}
-                    x={nodo.x}
-                    y={nodo.y}
-                    valor={nodo.valor}
-                    onDrag={handleDrag}
-                    onRightClick={(e) => handleNodoRightClick(nodo, e)}
+          <Layer>
+            {/* Dibujar nodos */}
+            {nodes.map((node) => (
+              <React.Fragment key={node.id}>
+                <Circle
+                  x={node.x}
+                  y={node.y}
+                  radius={20}
+                  fill="lightblue"
+                  stroke="black"
+                  strokeWidth={2}
+                  onContextMenu={(e) => {
+                    e.evt.preventDefault();
+                    handleStartEdge(node.id);
+                  }}
                 />
+                <Text
+                  x={node.x - 10}
+                  y={node.y - 10}
+                  text={node.name}
+                  fontSize={16}
+                  fill="black"
+                />
+              </React.Fragment>
             ))}
+
+            {/* Dibujar aristas */}
+            {edges.map((edge) => {
+              const fromNode = nodes.find((node) => node.id === edge.from);
+              const toNode = nodes.find((node) => node.id === edge.to);
+              return (
+                <React.Fragment key={edge.id}>
+                  <Arrow
+                    points={[fromNode.x, fromNode.y, toNode.x, toNode.y]}
+                    pointerLength={10}
+                    pointerWidth={10}
+                    fill="black"
+                    stroke="black"
+                    strokeWidth={2}
+                    onMouseDown={(e) => {
+                      const stage = stageRef.current;
+                      const pointerPosition = stage.getPointerPosition();
+                      const distanceToStart = Math.sqrt(
+                        Math.pow(pointerPosition.x - fromNode.x, 2) +
+                        Math.pow(pointerPosition.y - fromNode.y, 2)
+                      );
+                      const distanceToEnd = Math.sqrt(
+                        Math.pow(pointerPosition.x - toNode.x, 2) +
+                        Math.pow(pointerPosition.y - toNode.y, 2)
+                      );
+
+                      if (distanceToStart < distanceToEnd) {
+                        handleDragStart(edge.id, "from"); // Arrastrar la cola
+                      } else {
+                        handleDragStart(edge.id, "to"); // Arrastrar la cabeza
+                      }
+                    }}
+                  />
+                  <Text
+                    x={(fromNode.x + toNode.x) / 2}
+                    y={(fromNode.y + toNode.y) / 2}
+                    text={edge.weight.toString()}
+                    fontSize={16}
+                    fill="red"
+                  />
+                </React.Fragment>
+              );
+            })}
+          </Layer>
+        </Stage>
+      </div>
+
+      {/* Inputs para nombre y peso */}
+      {showNameInput && (
+        <div style={{ position: "absolute", top: 20, left: 20 }}>
+          <input
+            type="text"
+            placeholder="Nombre del nodo"
+            value={nodeName}
+            onChange={(e) => setNodeName(e.target.value)}
+          />
+          <button onClick={confirmNodeName}>Confirmar</button>
         </div>
-    );
+      )}
+
+      {showWeightInput && (
+        <div style={{ position: "absolute", top: 20, left: 20 }}>
+          <input
+            type="number"
+            placeholder="Peso de la arista"
+            value={edgeWeight}
+            onChange={(e) => setEdgeWeight(e.target.value)}
+          />
+          <button onClick={confirmEdgeWeight}>Confirmar</button>
+        </div>
+      )}
+
+      {/* Mostrar matriz de adyacencia */}
+      <div style={{ marginLeft: 20 }}>
+        <h2>Matriz de Adyacencia</h2>
+        <table border="1">
+          <thead>
+            <tr>
+              <th></th>
+              {nodes.map((node) => (
+                <th key={node.id}>{node.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {generateAdjacencyMatrix().map((row, i) => (
+              <tr key={i}>
+                <td>{nodes[i].name}</td>
+                {row.map((cell, j) => (
+                  <td key={j}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 };
 
-export default Pizarra;
+export default App;

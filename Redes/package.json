@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "konva": "^9.3.18",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-konva": "^19.0.2",
     "sweetalert2": "^11.16.0"
   },
   "devDependencies": {
