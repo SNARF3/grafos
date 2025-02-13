@@ -1,15 +1,11 @@
 import React, { useState, useRef } from "react";
-import { Stage, Layer, Circle, Text, Arrow, Line } from "react-konva";
+import { Stage, Layer, Circle, Text, Arrow } from "react-konva";
+import Swal from "sweetalert2";
 
 const App = () => {
   const [nodes, setNodes] = useState([]); // Almacena los nodos
   const [edges, setEdges] = useState([]); // Almacena las aristas
-  const [tempEdge, setTempEdge] = useState(null); // Arista temporal al crear
   const [selectedNode, setSelectedNode] = useState(null); // Nodo seleccionado para crear arista
-  const [nodeName, setNodeName] = useState(""); // Nombre del nodo
-  const [edgeWeight, setEdgeWeight] = useState(""); // Peso de la arista
-  const [showNameInput, setShowNameInput] = useState(false); // Mostrar input de nombre
-  const [showWeightInput, setShowWeightInput] = useState(false); // Mostrar input de peso
   const [draggingEdge, setDraggingEdge] = useState(null); // Flecha que se está arrastrando
   const [draggingEnd, setDraggingEnd] = useState(null); // Indica si se arrastra la cabeza (to) o la cola (from)
   const stageRef = useRef(null); // Referencia al stage de Konva
@@ -19,62 +15,66 @@ const App = () => {
     if (e.evt.button === 0 && e.evt.detail === 2) { // Doble click izquierdo
       const stage = stageRef.current;
       const pointerPosition = stage.getPointerPosition();
-      setShowNameInput(true);
-      setNodes([
-        ...nodes,
-        {
-          id: `node-${nodes.length + 1}`,
-          x: pointerPosition.x,
-          y: pointerPosition.y,
-          name: "",
-        },
-      ]);
-    }
-  };
 
-  // Función para confirmar el nombre del nodo
-  const confirmNodeName = () => {
-    if (nodeName.trim()) {
-      const updatedNodes = nodes.map((node, index) =>
-        index === nodes.length - 1 ? { ...node, name: nodeName } : node
-      );
-      setNodes(updatedNodes);
-      setNodeName("");
-      setShowNameInput(false);
+      Swal.fire({
+        title: 'Nombre del nodo',
+        input: 'text',
+        inputPlaceholder: 'Ingrese el nombre del nodo',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: (name) => {
+          if (name) {
+            setNodes([
+              ...nodes,
+              {
+                id: `node-${nodes.length + 1}`,
+                x: pointerPosition.x,
+                y: pointerPosition.y,
+                name: name,
+              },
+            ]);
+          } else {
+            Swal.showValidationMessage('Por favor ingresa un nombre válido');
+          }
+        }
+      });
     }
   };
 
   // Función para iniciar la creación de una arista
   const handleStartEdge = (nodeId) => {
     if (selectedNode === null) {
+      // Si no hay un nodo seleccionado, seleccionar este nodo
       setSelectedNode(nodeId);
-    } else {
-      setShowWeightInput(true);
-      setTempEdge({ from: selectedNode, to: nodeId });
-    }
-  };
-
-  // Función para confirmar el peso de la arista
-  const confirmEdgeWeight = () => {
-    if (edgeWeight.trim()) {
-      const newEdge = {
-        id: `edge-${edges.length + 1}`,
-        from: tempEdge.from,
-        to: tempEdge.to,
-        weight: parseInt(edgeWeight),
-      };
-      setEdges([...edges, newEdge]);
-      setEdgeWeight("");
-      setShowWeightInput(false);
-      setTempEdge(null);
+    } else if (selectedNode === nodeId) {
+      // Si se hace clic en el mismo nodo, deseleccionar
       setSelectedNode(null);
+    } else {
+      // Si hay un nodo seleccionado y se hace clic en otro nodo, crear la arista
+      Swal.fire({
+        title: 'Peso de la arista',
+        input: 'number',
+        inputPlaceholder: 'Ingrese el peso de la arista',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: (weight) => {
+          if (weight) {
+            const newEdge = {
+              id: `edge-${edges.length + 1}`,
+              from: selectedNode,
+              to: nodeId,
+              weight: parseInt(weight),
+            };
+            setEdges([...edges, newEdge]);
+            setSelectedNode(null); // Resetear el nodo seleccionado
+          } else {
+            Swal.showValidationMessage('Por favor ingresa un valor válido');
+          }
+        }
+      });
     }
-  };
-
-  // Función para iniciar el arrastre de una flecha
-  const handleDragStart = (edgeId, end) => {
-    setDraggingEdge(edgeId);
-    setDraggingEnd(end); // 'from' o 'to'
   };
 
   // Función para finalizar el arrastre de una flecha
@@ -113,7 +113,6 @@ const App = () => {
     }
   };
 
-
   const handleDragMoveNode = (e, nodeId) => {
     const { x, y } = e.target.position();  // Obtiene la nueva posición del nodo
     const updatedNodes = nodes.map((node) =>
@@ -121,7 +120,6 @@ const App = () => {
     );
     setNodes(updatedNodes);  // Actualiza el estado con la nueva posición del nodo
   };
-
 
   // Generar matriz de adyacencia
   const generateAdjacencyMatrix = () => {
@@ -162,7 +160,7 @@ const App = () => {
                   draggable
                   onDragMove={(e) => handleDragMoveNode(e, node.id)}
                   onContextMenu={(e) => {
-                    e.evt.preventDefault();
+                    e.evt.preventDefault(); // Evitar el menú contextual predeterminado
                     handleStartEdge(node.id);
                   }}
                 />
@@ -199,43 +197,17 @@ const App = () => {
                   />
                   <Text
                     x={toX - Math.cos(Math.atan2(toY - fromY, toX - fromX)) * 35}
-                    y={5+(toY - Math.sin(Math.atan2(toY - fromY, toX - fromX)) * 35)}
+                    y={5 + (toY - Math.sin(Math.atan2(toY - fromY, toX - fromX)) * 35)}
                     text={edge.weight.toString()}
                     fontSize={16}
                     fill="red"
                   />
-
                 </React.Fragment>
               );
             })}
           </Layer>
         </Stage>
       </div>
-
-      {/* Inputs para nombre y peso */}
-      {showNameInput && (
-        <div style={{ position: "absolute", top: 20, left: 20 }}>
-          <input
-            type="text"
-            placeholder="Nombre del nodo"
-            value={nodeName}
-            onChange={(e) => setNodeName(e.target.value)}
-          />
-          <button onClick={confirmNodeName}>Confirmar</button>
-        </div>
-      )}
-
-      {showWeightInput && (
-        <div style={{ position: "absolute", top: 20, left: 20 }}>
-          <input
-            type="number"
-            placeholder="Peso de la arista"
-            value={edgeWeight}
-            onChange={(e) => setEdgeWeight(e.target.value)}
-          />
-          <button onClick={confirmEdgeWeight}>Confirmar</button>
-        </div>
-      )}
 
       {/* Mostrar matriz de adyacencia */}
       <div style={{ marginLeft: 20 }}>
