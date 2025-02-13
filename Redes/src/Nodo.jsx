@@ -5,6 +5,7 @@ const Nodo = ({ x, y, valor, onDrag, onRightClick }) => {
     const [isDragging, setIsDragging] = useState(false);
 
     const handleMouseDown = (e) => {
+        console.log(e)
         setIsDragging(true);
     };
 
